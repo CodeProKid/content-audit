@@ -11,8 +11,9 @@ function content_audit_boxes() {
 		$allowed = array( $allowed );
 	foreach ( $options['post_types'] as $content_type ) {
 		add_meta_box( 'content_audit_meta', __( 'Content Audit Notes','content-audit' ), 'content_audit_notes_meta_box', $content_type, 'normal', 'high' );
+		add_meta_box( 'content_audit_reviewed', __( 'Mark content as reviewed', 'content-audit' ), 'content_audit_reviewed_meta_box', $content_type, 'side', 'low' );
 		add_meta_box( 'content_audit_owner', __( 'Content Owner','content-audit' ), 'content_audit_owner_meta_box', $content_type, 'side', 'low' );
-		add_meta_box( 'content_audit_exp_date', __( 'Expiration Date','content-audit' ), 'content_audit_exp_date_meta_box', $content_type, 'side', 'low' );
+		add_meta_box( 'content_audit_exp_date', __( 'Review Cadence','content-audit' ), 'content_audit_cadence_meta_box', $content_type, 'side', 'low' );
 		if ( $content_type == 'attachment' ) {
 			//add_filter( 'attachment_fields_to_edit', 'content_audit_media_fields', 10, 2 );
 			add_filter( 'attachment_fields_to_save', 'save_content_audit_media_meta', 10, 2 );
@@ -99,28 +100,77 @@ function content_audit_owner_meta_box() {
 <?php
 }
 
-function content_audit_exp_date_meta_box() {
+function content_audit_cadence_meta_box() {
 	$role = wp_get_current_user()->roles[0];
 	$options = get_option( 'content_audit' );
 	$allowed = $options['rolenames'];
 	if ( !is_array( $allowed ) )
 		$allowed = array( $allowed );
-	if ( function_exists( 'wp_nonce_field' ) ) wp_nonce_field( 'content_audit_exp_date_nonce', 'content_audit_exp_date_nonce' ); 
+	if ( function_exists( 'wp_nonce_field' ) ) wp_nonce_field( 'content_audit_cadence_nonce', 'content_audit_cadence_nonce' );
 ?>
 <div id="audit-exp-date">
 	<?php 
-	$date = sanitize_text_field( get_post_meta( get_the_ID(), '_content_audit_expiration_date', true ) ); 
+	$stored_cadence = sanitize_text_field( get_post_meta( get_the_ID(), '_content_audit_cadence', true ) );
 	// convert from timestamp to date string
-	if ( !empty( $date ) )
-		$date = date( 'm/d/y', $date );
-	if ( in_array( $role, $allowed ) ) { ?>
-		<input type="text" class="widefat datepicker" name="_content_audit_expiration_date" value="<?php esc_attr_e( $date ); ?>" />
-	<?php }
-	else
+	if ( in_array( $role, $allowed ) ) {
+
+		$review_cadences = apply_filters( 'content_audit_review_cadences', [
+			0 => '',
+			'1-week' => __( 'Once a week', 'content-audit' ),
+			'2-week' => __( 'Once ever other week', 'content-audit' ),
+			'1-month' => __( 'Once a month', 'content-audit' ),
+			'2-month' => __( 'Once every other month', 'content-audit' ),
+			'3-month' => __( 'Once every 3 months', 'content-audit' ),
+			'4-month' => __( 'Once every 4 months', 'content-audit' ),
+			'5-month' => __( 'Once every 5 months', 'content-audit' ),
+			'6-month' => __( 'Once every 6 months', 'content-audit' ),
+			'1-year' => __( 'Once a year', 'content-audit' ),
+		] );
+
+		if ( empty( $review_cadences ) || ! is_array( $review_cadences ) ) {
+			return;
+		}
+
+		echo '<select name="_content_audit_cadence" class="cr-review-cadence">';
+		foreach ( $review_cadences as $key => $cadence ) {
+			echo '<option value="' . esc_attr( $key ) . '" ' . selected( $stored_cadence, $key, false ) . '>' . esc_html( $cadence ) . '</option>';
+		}
+		echo '</select>';
+
+	} else {
 		// let non-auditors see the expiration date
-		echo $date; ?>
+		echo esc_html( $stored_cadence );
+	} ?>
+
+	<?php if ( ! empty( $expiration = get_post_meta( get_the_ID(), '_content_audit_expiration_date', true ) ) ) {
+		echo '<p>Content Expiration Date: ' . date( 'm/d/y', $expiration ) . '</p>';
+	} ?>
+
 </div>
 <?php
+}
+
+function content_audit_reviewed_meta_box() {
+	echo '<div class="content-audit-reviewed-meta-box">';
+	echo '<button data-id="' . esc_html( get_the_ID() ) . '" class="button button-primary button-large">' . __( 'Reviewed', 'content-audit') . '</button>';
+	echo '</div>';
+}
+
+add_action( 'wp_ajax_content_audit_reset', 'content_audit_reset_ajax' );
+function content_audit_reset_ajax() {
+
+	$post_id = ! empty( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+
+	if ( empty( $post_id ) ) {
+		return false;
+	}
+
+	$expiration_date = content_audit_update_expiration_date( $post_id );
+	wp_remove_object_terms( $post_id, array( 'review-due-1-day', 'review-due-1-week', 'outdated' ), 'content_audit' );
+
+	wp_send_json( [ 'expiration' => date( 'd/m/y', $expiration_date ) ] );
+	die();
+
 }
 
 // this is a display-only version of the Content Audit taxonomy
@@ -151,7 +201,7 @@ function save_content_audit_meta_data( $post_id ) {
 	if ( defined( 'DOING_AJAX' ) && !DOING_AJAX ) {
 		check_admin_referer( 'content_audit_notes_nonce', '_content_audit_notes_nonce' );
 		check_admin_referer( 'content_audit_owner_nonce', '_content_audit_owner_nonce' );
-		check_admin_referer( 'content_audit_exp_date_nonce', 'content_audit_exp_date_nonce' );
+		check_admin_referer( 'content_audit_cadence_nonce', 'content_audit_cadence_nonce' );
 	}
 
 	// check quickedit nonces
@@ -180,15 +230,16 @@ function save_content_audit_meta_data( $post_id ) {
 	}
 	if ( $_POST['_content_audit_owner'] >= 0 ) // don't save -1 
 		update_post_meta( $post_id, '_content_audit_owner', absint( $_POST['_content_audit_owner'] ) );
-	
-	if ( empty( $_POST['_content_audit_expiration_date'] ) ) {
-		$storedfield = get_post_meta( $post_id, '_content_audit_expiration_date', true );
-		delete_post_meta( $post_id, '_content_audit_expiration_date', $storedfield );
-	}
-	else {
-		// convert displayed date string to timestamp for storage
-		$date = strtotime( $_POST['_content_audit_expiration_date'] );
-		update_post_meta( $post_id, '_content_audit_expiration_date', $date );
+
+	if ( isset( $_POST['_content_audit_cadence'] ) ) {
+		$storedfield = get_post_meta( $post_id, '_content_audit_cadence', true );
+		if ( empty( $_POST['_content_audit_cadence'] ) ) {
+			delete_post_meta( $post_id, '_content_audit_cadence', $storedfield );
+		} else if ( $storedfield !== $_POST['_content_audit_cadence'] ) {
+			$cadence = sanitize_text_field( $_POST['_content_audit_cadence'] );
+			update_post_meta( $post_id, '_content_audit_cadence', $cadence );
+			content_audit_update_expiration_date( absint( $post_id ), $cadence );
+		}
 	}
 	
 	if ( empty( $_POST['_content_audit_notes'] ) ) {
@@ -263,4 +314,24 @@ function content_audit_media_fields( $form_fields, $post ) {
 		
 	return $form_fields;
 	
+}
+
+function content_audit_update_expiration_date( $post_id, $cadence = '' ) {
+
+	if ( empty( $cadence ) ) {
+		$cadence = get_post_meta( absint( $post_id ), '_content_audit_cadence', true );
+		// Bail if there isn't a cadence to reference in post meta, since we don't know what to set the expiration date to
+		if ( empty( $cadence ) ) {
+			return 0;
+		}
+	}
+
+	$expiration = strtotime( '+' . str_replace( '-', ' ', $cadence ) );
+
+	if ( ! empty( $expiration ) ) {
+		update_post_meta( $post_id, '_content_audit_expiration_date', $expiration );
+	}
+
+	return $expiration;
+
 }

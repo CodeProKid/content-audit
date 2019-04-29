@@ -109,35 +109,23 @@ function activate_content_audit_terms() {
 			'content_audit', 
 			array( 'description' => __( 'This information is old and should be updated.', 'content-audit' ) ) 
 		);
-	if ( !term_exists( 'Redundant', 'content-audit' ) &&  !term_exists( 'redundant', 'content-audit' ) )	
+	if ( !term_exists( 'Review due 1 week', 'content-audit' ) )
 		wp_insert_term( 
-			__( 'Redundant', 'content-audit' ), 
+			__( 'Review due 1 week', 'content-audit' ),
 			'content_audit', 
 			array( 'description' => __( 'This information is duplicated elsewhere.', 'content-audit' ) ) 
 		 );
-	if ( !term_exists( 'Trivial', 'content-audit' ) &&  !term_exists( 'trivial', 'content-audit' ) )
+	if ( !term_exists( 'Review due 1 day', 'content-audit' ) )
 		wp_insert_term( 
-			__( 'Trivial', 'content-audit' ), 
+			__( 'Review due 1 day', 'content-audit' ),
 			'content_audit', 
 			array( 'description' => __( 'This page is unnecessary.', 'content-audit' ) ) 
 		 );
-	if ( !term_exists( 'Review SEO', 'content-audit' ) &&  !term_exists( 'review-seo', 'content-audit' ) )
+	if ( !term_exists( 'Reviewed', 'content-audit' ) )
 		wp_insert_term( 
-			__( 'Review SEO', 'content-audit' ), 
+			__( 'Reviewed', 'content-audit' ),
 			'content_audit', 
 			array( 'description' => __( 'The title, metadata, and/or content are not aligned with our target keywords.', 'content-audit' ) ) 
-		 );
-	if ( !term_exists( 'Review Style', 'content-audit' ) &&  !term_exists( 'review-style', 'content-audit' ) )
-		wp_insert_term( 
-			__( 'Review Style', 'content-audit' ), 
-			'content_audit', 
-			array( 'description' => __( 'The title and/or content were not written according to our editorial guidelines.', 'content-audit' ) ) 
-		 );
-	if ( !term_exists( 'Audited', 'content-audit' ) &&  !term_exists( 'audited', 'content-audit' ) )
-		wp_insert_term( 
-			__( 'Audited', 'content-audit' ), 
-			'content_audit', 
-			array( 'description' => __( 'This page has been reviewed. No further changes are needed.', 'content-audit' ) ) 
 		 );
 }
 

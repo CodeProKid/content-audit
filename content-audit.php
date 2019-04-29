@@ -73,6 +73,7 @@ function content_audit_enqueue_scripts( $hook ) {
 	wp_register_style( 'wp-jquery-ui', plugins_url( 'css/wp-jquery-ui.css', __FILE__ ) );
 	wp_register_script( 'content-audit-quickedit', plugins_url( 'js/quickedit.js', __FILE__ ), array( 'jquery', 'inline-edit-post' ), '', true );
 	wp_register_script( 'content-audit-datepicker', plugins_url( 'js/initialize-datepicker.js', __FILE__ ), array( 'jquery', 'inline-edit-post' ), '', true );
+	wp_register_script( 'content-audit-reset-review', plugins_url( 'js/reset-content-review.js', __FILE__ ), array( 'jquery' ), '', true );
 	
 	// Add CSS to some specific admin pages
 	switch ( $hook ) {
@@ -84,6 +85,7 @@ function content_audit_enqueue_scripts( $hook ) {
 			wp_enqueue_script( 'jquery' );
 			wp_enqueue_script( 'jquery-ui-datepicker' );
 			wp_enqueue_script( 'content-audit-datepicker' );
+			wp_enqueue_script( 'content-audit-reset-review');
 			wp_enqueue_style( 'wp-jquery-ui' );
 			// and keep going; we want the CSS too
 		case 'index.php':
